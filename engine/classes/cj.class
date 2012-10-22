@@ -1,0 +1,87 @@
+<?php
+
+class CJ {
+
+	public static function query() {
+		return new CJ();
+	}
+
+	public static function products($params = array()) {
+		$results = self::request("https://product-search.api.cj.com/v2/product-search", $params);
+		if (is_object($results->products->product)) {
+			foreach ($results->products->product as $k => $v) {
+				$products[] = (object)$v;
+			}
+		}
+		return array_merge($products, (array)$results->products->attributes());
+	}
+
+	public static function links($params = array()) {
+		$results = self::request("https://linksearch.api.cj.com/v2/link-search", $params);
+		if (is_object($results->links->link)) {
+			foreach ($results->links->link as $k => $v) {
+				$links[] = (object)$v;
+			}
+		}
+		return array_merge($links, (array)$results->links->attributes());
+	}
+
+	public static function advertisers($params = array()) {
+		$results = self::request("https://advertiser-lookup.api.cj.com/v3/advertiser-lookup", $params);
+		if (is_object($results->advertisers->advertiser)) {
+			foreach ($results->advertisers->advertiser as $k => $v) {
+				$advertisers[] = (object)$v;
+			}
+		}
+		return array_merge($advertisers, (array)$results->advertisers->attributes());
+	}
+
+	public static function categories($params = array()) {
+		$results = self::request("https://support-services.api.cj.com/v2/categories", $params);
+		if (is_object($results->categories->category)) {
+			foreach ($results->categories->category as $k => $v) {
+				$categories[] = (object)$v;
+			}
+		}
+		return array_merge($categories, (array)$results->categories->attributes());
+	}
+
+	public static function getAll($type = false, $params = array(), $total = 0, $results = null) {
+		if ($type) {
+			$results = self::$type($params);
+			if (isset($results['@attributes']['total-matched'])) {
+				if ($results['@attributes']['total-matched'] > $total) {
+					$params['page-number'] = $results['@attributes']['page-number']++;
+					$results = array_merge($results, self::getAll($type, $params, ($results['@attributes']['records-returned'] + $total), $results));
+				}
+			}
+
+		}
+		return $results;
+	}
+
+	private static function request($url, $params) {
+		$post_string = '';
+		foreach ($params as $k => $v) $post_string .= $k."=".$v."&";
+		$post_string = rtrim($post_string, '&');
+		$url = $url."?".$post_string;
+		$ch = curl_init();
+		$header[] = "Authorization: ".DEVELOPER_KEY;
+		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+		curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+		curl_setopt($ch, CURLOPT_POST, FALSE);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+		curl_setopt($ch, CURLOPT_URL, $url);
+		$ch_data = curl_exec($ch);
+		if (!strstr($ch_data, "Bad Request")) {
+			$ch_data = new SimpleXMLElement($ch_data);
+			curl_close($ch);
+			return $ch_data;
+		} else { die("Bad Request: Invalid Query and/or Configuration."); }
+	}
+
+}
+
+?>
